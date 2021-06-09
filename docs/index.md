@@ -66,14 +66,17 @@
   * [How to setup basic next environment](#how-to-setup-basic-next-environment)
     + [Workflow for next/tf-a-job-configs.git](#workflow-for-next-tf-a-job-configsgit)
     + [Workflow for other repositories](#workflow-for-other-repositories)
-- [Uploading files into shared repository](#uploading-files-into-shared-repository#)
-  * [Installation](#installation#)
-  * [Upload a file](#upload-a-file#)
-  * [Examples](#examples#)
-  * [Obtaining a token](#obtaining-a-token#)
-  * [Overwrite a file](#overwrite-a-file#)
-  * [Delete a file](#delete-a-file#)
-  * [Future updates](#future-updates#)
+- [Uploading files into shared repository](#uploading-files-into-shared-repository)
+  * [Installation](#installation)
+  * [Upload a file](#upload-a-file)
+  * [Examples](#examples)
+  * [Obtaining a token](#obtaining-a-token)
+  * [Overwrite a file](#overwrite-a-file)
+  * [Delete a file](#delete-a-file)
+  * [Future updates](#future-updates)
+- [LAVA FVP containers](#lava-fvp-containers)
+  * [FVP models download sites](#fvp-models-download-sites)
+  * [Dockerfile generation and Gerrit Review](#dockerfile-generation-and-gerrit-review)
 - [Misc Info](#misc-info)
   * [LAVA Ready](#lava-ready)
 
@@ -1090,9 +1093,86 @@ The ability to overwrite previous uploads has been enabled on this instance of t
 
 The project is being hosted at https://gitlab.com/Linaro/tuxput .If you run into a bug or have a feature request, please submit it there.
 
+# LAVA FVP containers
+
+LAVA is used to launch FVP (fast) models based on CI artifacts. In turn, models are launched
+inside a containerized environment. In other words, models are **not** run from a bare metal
+host system, but inside containers on a LAVA host, where these are launched by
+LAVA using CI artifacts and configured model parameters. In case a new FVP model is required
+at the CI,  a contributor needs to first create the corresponding Dockerfile, then get it
+reviewed and finally adjust the CI scripts for its usage.
+
+## FVP models download sites
+
+FVP are provided by Arm at these sites:
+
+* [Silver FM000](https://silver.arm.com/browse/FM000)
+* [Arm Ecosystem Models](https://developer.arm.com/tools-and-software/simulation-models/fixed-virtual-platforms/arm-ecosystem-models)
+
+
+## Dockerfile generation and Gerrit Review
+
+There is an automate way to generate new docker files, but requires previous model download by the
+user, so please go to the indicated model download sites and download the required model first.
+Once this is done, follow these steps:
+
+* Clone the repository
+
+```
+git clone https://git.trustedfirmware.org/ci/fvp-dockerfiles.git
+```
+
+* Build the container
+
+```
+cd fvp-dockerfiles
+make TGZ_DIR=<path to model directory>
+```
+
+where `TGZ_DIR` is directory full path where the model (tarball) is stored at user filesystem.
+The `TGZ_DIR` folder may contain more than one model, so the script would build more than one
+docker file/image located at different workspace folders. The new *docker file* is stored at
+`<model name>/Dockerfile`. You can check that the new docker image has been created
+running `docker images`.
+
+One easy way to check if the model container has been correctly installed is checking the
+model's version, for example
+
+```
+$ docker run --rm fvp:fvp_base_revc-2xaemva_11.14_21 /opt/model/Base_RevC_AEMvA_pkg/models/Linux64_GCC-6.4/FVP_Base_RevC-2xAEMvA --version
+passwd: password expiry information changed.
+
+Fast Models [11.14.21 (Mar 16 2021)]
+Copyright 2000-2021 ARM Limited.
+All Rights Reserved.
+
+
+Info: /OSCI/SystemC: Simulation stopped by user.
+```
+
+In case you want to launch the new model container with real produced CI artifacts, you can use the
+[fvp-launcher.sh](https://git.trustedfirmware.org/ci/tf-a-ci-scripts.git/tree/script/fvp-launcher.sh)
+script. See script header documentation for its usage.
+
+Once you have a working container tested with the above commands, a contributor needs to propose a
+patch review with the new created *docker file* following gerrit review standards:
+These are the steps
+
+* Create a commit and request a review
+
+```
+git add <model directory>/Dockerfile
+git commit -s
+git review
+```
+
+Once the patch has been approved and submitted, the CI would automatically created the docker image
+and push it into the corresponding registry where LAVA has access when launching/testing
+future jobs. The last step, which is project specific, adjust the CI scripts to indicate LAVA to use this particular
+model. For the TF-A project, check [utils.sh](https://git.trustedfirmware.org/ci/tf-a-ci-scripts.git/tree/utils.sh)
+and [fvp_utils](https://git.trustedfirmware.org/ci/tf-a-ci-scripts.git/tree/fvp_utils.sh) scripts.
 
 # Misc Info
-
 
 ## LAVA Ready
 
